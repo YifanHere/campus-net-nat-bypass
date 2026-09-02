@@ -54,7 +54,7 @@
 5. **Cron 定时保活**：在 OpenWrt 系统 -> 计划任务 中添加定时脚本：
    ```
    # 每 5 分钟向 Dr.COM 核心网关 (端口80) 发送原生心跳探针 (b111.jpg)
-   # 携带伪造的 Windows UA 和 Referer，完美伪装成 PC 端网页的后台静默心跳
+   # 携带伪造的 Windows UA 和 Referer，完美伪装成 PC 端网页的后台静默心跳（如果你使用移动终端登录的校园网账号，则UA需改为相对应的）
    */5 * * * * curl -s -o /dev/null -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0" -H "Referer: http://210.34.84.127/b80.css" "http://210.34.84.127/b111.jpg"
    ```
 
