@@ -61,10 +61,10 @@
 #### 二、 防火墙深度伪装规则 (iptables)
 在 OpenWrt `网络 -> 防火墙 -> 自定义规则` 中添加以下规则：
 1. **锁定 TTL 值**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -j TTL --ttl-set 64` （防路由跃点检测）。
-2. **抹除 TCP 时间戳**：`iptables -t mangle -A POSTROUTING -p tcp -j TCPOPTSTRIP --strip-options timestamp` （防多操作系统时钟指纹识别）。
+2. **抹除 TCP 时间戳**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -p tcp -j TCPOPTSTRIP --strip-options timestamp` （防多操作系统时钟指纹识别）。
 3. **拦截广播/组播**：
-   - 丢弃广播/组播：`iptables -A FORWARD -m pkttype --pkt-type broadcast -j DROP` / `multicast -j DROP`
-   - 丢弃局域网发现协议：封锁 SSDP(`1900`)、mDNS(`5353`)、SMB(`445`)、NetBIOS(`137:138`) 端口，防止内网设备向外网“打招呼”。
-4. **DNS/NTP 劫持**：重定向 UDP 53 和 123 端口至路由器，由路由器统一向公共 DNS/NTP 服务器发起请求，抹除多设备的侧信道特征差异。
+   - 丢弃广播/组播：`iptables -A FORWARD -m pkttype --pkt-type broadcast -j DROP`；`iptables -A FORWARD -m pkttype --pkt-type multicast -j DROP`
+   - 丢弃局域网发现协议：`iptables -A FORWARD -p udp -m multiport --dports 137,138,1900,5353 -j DROP`；`iptables -A FORWARD -p tcp -m multiport --dports 139,445 -j DROP`。封锁 SSDP(`1900`)、mDNS(`5353`)、SMB(`445`)、NetBIOS(`137:138`) 端口，防止内网设备向外网“打招呼”。
+4. **DNS/NTP 劫持**：`iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 53`；`iptables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports 53`；`iptables -t nat -A PREROUTING -p udp --dport 123 -j REDIRECT --to-ports 123`。重定向 UDP 53 和 123 端口至路由器，由路由器统一向公共 DNS/NTP 服务器发起请求，抹除多设备的侧信道特征差异。
 
 ---
