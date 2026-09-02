@@ -13,6 +13,8 @@
 
 **3. 我不提供帮助，感谢理解！🤝**
 
+---
+
 ### 📄 开源协议
 本技术原理采用 MIT License 开源协议。
 
@@ -59,3 +61,5 @@
    - 丢弃广播/组播：`iptables -A FORWARD -m pkttype --pkt-type broadcast -j DROP` / `multicast -j DROP`
    - 丢弃局域网发现协议：封锁 SSDP(`1900`)、mDNS(`5353`)、SMB(`445`)、NetBIOS(`137:138`) 端口，防止内网设备向外网“打招呼”。
 4. **DNS/NTP 劫持**：重定向 UDP 53 和 123 端口至路由器，由路由器统一向公共 DNS/NTP 服务器发起请求，抹除多设备的侧信道特征差异。
+
+---
