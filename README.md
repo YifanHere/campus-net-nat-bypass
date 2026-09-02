@@ -48,14 +48,15 @@
 ### 💻 技术原理
 #### 一、 OpenWrt 路由器基础配置
 1. **MAC 克隆**：在 WAN 口设置中，克隆已成功登录认证过的 PC/移动终端 的 MAC 地址（可以在自助服务系统页面查看）。**这里很重要！用的如果是在登录时被后台记录为 PC 的 MAC 地址，则 UA2F 插件中，UA 也应该填写 PC 的 UA ，反之亦然** 。
-2. **冷门 LAN 网段**：将 LAN 口 IP 修改为冷门私有网段（如 `172.31.255.1`），规避前端 JS 探针对常见网关 IP（如 `192.168.x.x`）的扫描。
-3. **彻底关闭 IPv6**：删除或禁用 `WAN6` 接口；在 LAN 口 DHCP 设置中全面禁用 **RA、DHCPv6、NDP** 服务，防止 IPv6 穿透暴露多设备。
-4. **配置 UA2F 插件**：安装 UA2F 。假如你 MAC 克隆的是被后台记录为 PC 的MAC地址，则将自定义 User-Agent 统一设为 `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0` **（最好是用自己登录时向服务器请求的UA）**，伪装所有 HTTP 流量为单一 Windows 电脑。
-5. **Cron 定时保活**：在 OpenWrt 系统 -> 计划任务 中添加定时脚本：
+2. **IP 克隆**： 根据认证设备的操作系统中显示的网关地址确定 IPv4 网关地址，然后在 WAN 口设置中，将协议更改为静态地址，IPv4 地址修改为校园网账号登录时记录的 IP，IPv4 网关地址修改为上述已确定的 IPv4 网关地址。**这一步要正确配置才能成功连上网**
+3. **冷门 LAN 网段**：将 LAN 口 IP 修改为冷门私有网段（如 `172.31.255.1`），规避前端 JS 探针对常见网关 IP（如 `192.168.x.x`）的扫描。
+4. **彻底关闭 IPv6**：删除或禁用 `WAN6` 接口；在 LAN 口 DHCP 设置中全面禁用 **RA、DHCPv6、NDP** 服务，防止 IPv6 穿透暴露多设备。
+5. **配置 UA2F 插件**：安装 UA2F 。假如你 MAC 克隆的是被后台记录为 PC 的MAC地址，则将自定义 User-Agent 统一设为 `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0` **（最好是用自己登录时向服务器请求的UA）**，伪装所有 HTTP 流量为单一 Windows 电脑。
+6. **Cron 定时保活**：在 OpenWrt 系统 -> 计划任务 中添加定时脚本：
    ```
-   # 每 5 分钟向 Dr.COM 核心网关 (端口80) 发送原生心跳探针 (b111.jpg)
+   # 每 3 分钟向 Dr.COM 核心网关 (端口80) 发送原生心跳探针 (b111.jpg)
    # 携带伪造的 Windows UA 和 Referer，完美伪装成 PC 端网页的后台静默心跳（如果你使用移动终端登录的校园网账号，则UA需改为相对应的）
-   */5 * * * * curl -s -o /dev/null -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0" -H "Referer: http://210.34.84.127/b80.css" "http://210.34.84.127/b111.jpg"
+   */3 * * * * curl -s -o /dev/null -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0" -H "Referer: http://210.34.84.127/b80.css" "http://210.34.84.127/b111.jpg"
    ```
 
 #### 二、 防火墙深度伪装规则 (iptables)
