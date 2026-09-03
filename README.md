@@ -62,6 +62,7 @@
 4. **DNS/NTP 劫持**：`iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 53`；`iptables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports 53`；`iptables -t nat -A PREROUTING -p udp --dport 123 -j REDIRECT --to-ports 123`。重定向 UDP 53 和 123 端口至路由器，由路由器统一向公共 DNS/NTP 服务器发起请求，抹除多设备的侧信道特征差异。
 5. **随机化 IPID 指纹**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -j IPID --id-random`
 6. **使用 TCPMSS 钳制，间接影响 TCP 窗口行为**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu`
-7. **统一 ICMP 响应的 TTL（与 TCP 保持一致）**:`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -p icmp -j TTL --ttl-set 64`
+7. **统一 ICMP 响应的 TTL（与 TCP 保持一致）**: `iptables -t mangle -A POSTROUTING -o <你的WAN口名> -p icmp -j TTL --ttl-set 64`
+8. **拦截所有 DHCP 广播**： 防止内网设备的 DHCP 请求泄露到 WAN `iptables -A FORWARD -p udp --dport 67 -j DROP` `iptables -A FORWARD -p udp --dport 68 -j DROP`
 
 ---
