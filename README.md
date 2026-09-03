@@ -1,7 +1,7 @@
 ### 📃 介绍
 本文章针对 **福建农林大学仓山校区宿舍校园网的设备数量限制** 进行破限，经过 8 台设备长达 120 多分钟（截止开源时已正常运行超过12小时）的测试，可以正常使用。
 
-基于 OpenWrt 的校园网 **Web版** Dr.COM/ePortal 防共享检测绕过指南。包含 TTL/UA2F/IPv6 伪装、JS 探针防御及自动化保活脚本，突破多设备绑定限制。以福建农林大学仓山校区宿舍校园网为例。
+基于 OpenWrt 的校园网 **Web版** Dr.COM/ePortal 防共享检测绕过指南。包含 TTL/UA2F/IPv6/IPID 伪装、JS 探针防御等，突破多设备绑定限制。以福建农林大学仓山校区宿舍校园网为例。
 
 ---
 
@@ -51,12 +51,6 @@
 2. **冷门 LAN 网段**：将 LAN 口 IP 修改为冷门私有网段（如 `172.31.255.1`），规避前端 JS 探针对常见网关 IP（如 `192.168.x.x`）的扫描。
 3. **彻底关闭 IPv6**：删除或禁用 `WAN6` 接口；在 LAN 口 DHCP 设置中全面禁用 **RA、DHCPv6、NDP** 服务，防止 IPv6 穿透暴露多设备。
 4. **配置 UA2F 插件**：安装 UA2F 。假如你 MAC 克隆的是被后台记录为 PC 的MAC地址，则将自定义 User-Agent 统一设为 `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0` **（最好是用自己登录时向服务器请求的UA）**，伪装所有 HTTP 流量为单一 Windows 电脑。
-5. **Cron 定时保活**：在 OpenWrt 系统 -> 计划任务 中添加定时脚本：
-   ```
-   # 每 3 分钟向 Dr.COM 核心网关 (端口80) 发送原生心跳探针 (b111.jpg)
-   # 携带伪造的 Windows UA 和 Referer，完美伪装成 PC 端网页的后台静默心跳（如果你使用移动终端登录的校园网账号，则UA需改为相对应的）
-   */3 * * * * curl -s -o /dev/null -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0" -H "Referer: http://210.34.84.127/b80.css" "http://210.34.84.127/b111.jpg"
-   ```
 
 #### 二、 防火墙深度伪装规则 (iptables)
 在 OpenWrt `网络 -> 防火墙 -> 自定义规则` 中添加以下规则：
