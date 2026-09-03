@@ -60,7 +60,7 @@
    - 丢弃广播/组播：`iptables -A FORWARD -m pkttype --pkt-type broadcast -j DROP`；`iptables -A FORWARD -m pkttype --pkt-type multicast -j DROP`
    - 丢弃局域网发现协议：`iptables -A FORWARD -p udp -m multiport --dports 137,138,1900,5353 -j DROP`；`iptables -A FORWARD -p tcp -m multiport --dports 139,445 -j DROP`。封锁 SSDP(`1900`)、mDNS(`5353`)、SMB(`445`)、NetBIOS(`137:138`) 端口，防止内网设备向外网“打招呼”。
 4. **DNS/NTP 劫持**：`iptables -t nat -A PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 53`；`iptables -t nat -A PREROUTING -p tcp --dport 53 -j REDIRECT --to-ports 53`；`iptables -t nat -A PREROUTING -p udp --dport 123 -j REDIRECT --to-ports 123`。重定向 UDP 53 和 123 端口至路由器，由路由器统一向公共 DNS/NTP 服务器发起请求，抹除多设备的侧信道特征差异。
-5. **随机化 IPID 指纹**：`iptables -t mangle -A POSTROUTING -o <WAN口> -j IPID --id-random`
+5. **随机化 IPID 指纹**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -j IPID --id-random`
 6. **使用 TCPMSS 钳制，间接影响 TCP 窗口行为**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu`
 7. **统一 ICMP 响应的 TTL（与 TCP 保持一致）**:`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -p icmp -j TTL --ttl-set 64`
 
