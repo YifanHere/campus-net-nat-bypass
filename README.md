@@ -50,7 +50,7 @@
 1. **MAC 克隆**：在 WAN 口设置中，克隆已成功登录认证过的 PC/移动终端 的 MAC 地址（可以在自助服务系统页面查看）。**这里很重要！用的如果是在登录时被后台记录为 PC 的 MAC 地址，则 UA2F 插件中，UA 也应该填写 PC 的 UA ，反之亦然** 。
 2. **冷门 LAN 网段**：将 LAN 口 IP 修改为冷门私有网段（如 `172.31.255.1`），规避前端 JS 探针对常见网关 IP（如 `192.168.x.x`）的扫描。
 3. **彻底关闭 IPv6**：删除或禁用 `WAN6` 接口；在 LAN 口 DHCP 设置中全面禁用 **RA、DHCPv6、NDP** 服务，防止 IPv6 穿透暴露多设备。
-4. **配置 UA2F 插件**：安装 UA2F 。假如你 MAC 克隆的是被后台记录为 PC 的MAC地址，则将自定义 User-Agent 统一设为 `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0` **（最好是用自己登录时向服务器请求的UA）**，伪装所有 HTTP 流量为单一 Windows 电脑。
+4. **配置 UA2F 插件**：安装 UA2F 。假如你 MAC 克隆的是被后台记录为 PC 的MAC地址，则将自定义 User-Agent 统一设为 `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0` **（最好是用自己登录时向服务器请求的UA）**，伪装所有 HTTP 流量为单一 Windows 电脑 / 移动终端。
 
 #### 二、 防火墙深度伪装规则 (iptables)
 在 OpenWrt `网络 -> 防火墙 -> 自定义规则` 中添加以下规则：
