@@ -54,7 +54,7 @@
 
 #### 二、 防火墙深度伪装规则 (iptables)
 在 OpenWrt `网络 -> 防火墙 -> 自定义规则` 中添加以下规则：
-1. **锁定 TTL 值**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -j TTL --ttl-set 64` （防路由跃点检测）。
+1. **锁定 TTL 值**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -j TTL --ttl-set 128` （防路由跃点检测）。
 2. **抹除 TCP 时间戳**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -p tcp -j TCPOPTSTRIP --strip-options timestamp` （防多操作系统时钟指纹识别）。
 3. **拦截广播/组播**：
    - 丢弃广播/组播：`iptables -A FORWARD -m pkttype --pkt-type broadcast -j DROP`；`iptables -A FORWARD -m pkttype --pkt-type multicast -j DROP`
