@@ -53,6 +53,9 @@
 4. **配置 UA2F 插件**：安装 UA2F 。假如你 MAC 克隆的是被后台记录为 PC 的MAC地址，则将自定义 User-Agent 统一设为 `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0` **（最好是用自己登录时向服务器请求的UA）**，伪装所有 HTTP 流量为单一 Windows 电脑 / 移动终端。
 
 #### 二、 防火墙深度伪装规则 (iptables)
+
+**以下规则命令需要根据你所使用的固件与插件版本来决定，照搬下述命令可能无效！**
+
 在 OpenWrt `网络 -> 防火墙 -> 自定义规则` 中添加以下规则：
 1. **锁定 TTL 值**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -j TTL --ttl-set 128` （防路由跃点检测）。
 2. **抹除 TCP 时间戳**：`iptables -t mangle -A POSTROUTING -o <你的WAN口名> -p tcp -j TCPOPTSTRIP --strip-options timestamp` （防多操作系统时钟指纹识别）。
