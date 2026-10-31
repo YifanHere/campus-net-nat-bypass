@@ -2,12 +2,11 @@
 
 基于 OpenWrt 的校园网 **Web 版 Dr.COM / 哆点 ePortal** 防共享检测绕过。
 
-测试环境：福建农林大学仓山校区 / 中国移动校园宽带 / Dr.COM ePortal 4.x
+测试环境：
+- 福建农林大学仓山校区 / 中国移动校园宽带 / Dr.COM ePortal 4.x
+- 路由器：Xiaomi MiWiFi Mini（mt7620 / 128MB） / OpenWrt R24.8.1 / kernel 5.4.278
 
-路由器：Xiaomi MiWiFi Mini（mt7620 / 128MB） / OpenWrt R24.8.1 / kernel 5.4.278
-
-内网 11 台终端（Windows / iOS / Android / HarmonyOS 混合）
-**经实测，可以稳定用网超过10小时**
+内网 11 台终端（Windows / iOS / Android / HarmonyOS 混合），**经实测，可以稳定用网超过10小时**
 
 **本教程侧重于原理剖析，而非无脑地教你执行，所以适合有一定技术基础的人阅读，你应至少同时具备：**
 - OpenWrt / Linux 基础
