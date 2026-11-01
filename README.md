@@ -97,8 +97,8 @@ AC 自助服务页只有一行，但会给你打上"终端类型"标签：
 
 | # | 维度 | 状态 | 依据 |
 |---|---|---|---|
-| 1 | **`mac_type` 终端类型** | ✅ **生效（高）** | portal `a41.js` 的 `util.getTermType()` 按 UA 算 0/1/2/3/4 并随请求上报|
-| 2 | **IPv6 地址** | ✅ **高危（若有公网 v6）** | portal 上报 `wlan_user_ipv6`，且有 `ip6.dr.com:9002/v6` 通道；**IPv6 无 NAT，设备 MAC 全裸奔** |
+| 1 | **`mac_type` 终端类型** | ✅ **生效** | portal `a41.js` 的 `util.getTermType()` 按 UA 算 0/1/2/3/4 并随请求上报|
+| 2 | **IPv6 地址** | ✅ **生效** | portal 上报 `wlan_user_ipv6`，且有 `ip6.dr.com:9002/v6` 通道；**IPv6 无 NAT，设备 MAC 全裸奔** |
 | 3 | **计费流量 42/43 + 52/53** | ✅ **生效** | RADIUS 全量累计、Interim 级实时上报（流量数据确实被实时上报）|
 | 4 | IPv4 TTL | ✅ 生效 | TTL 归一即可 |
 | 5 | IPID / TCP 选项 / 窗口 / TSval | ✅ 生效 | L3 重建 TCP 后由路由器内核生成 |
