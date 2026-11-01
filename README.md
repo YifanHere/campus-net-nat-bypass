@@ -358,7 +358,7 @@ uci set ua3f.custom_ua.custom='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWe
 uci commit ua3f && /etc/init.d/ua3f restart
 ```
 
-**B. UAmask / 其它 TPROXY 中转（可同时完成 L3）**
+**B. [UAmask（笔者所用）](https://github.com/Zesuy/UA-Mask) / 其它 TPROXY 中转（可同时完成 L3）**
 
 它能终结 TCP 并重写 UA，顺带把 HTTPS 盲转发，等于 4.7 和 4.3 一起做了。
 
