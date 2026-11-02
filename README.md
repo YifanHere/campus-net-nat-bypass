@@ -140,7 +140,7 @@ util.getTermType = function(ua) {
 | `account_suffix` | 运营商后缀（`@cmcc` 等） |
 
 > **结论**：如果你的认证脚本固定说"我是 Android 手机"（`mac_type=2/3`），
-> 但实际跑着 11 台设备、400+ 并发、开各种端口 —— **画像自相矛盾**，这就是被踢的重要信号之一。
+> 但实际跑着 11 台设备、1000+ 并发、开各种端口 —— **画像自相矛盾**，这就是被踢的重要信号之一。
 >
 > **正确做法**：统一画像
 
@@ -439,7 +439,7 @@ iptables -t mangle -A POSTROUTING -o $WAN -p icmp -j TTL --ttl-set 64
 iptables -t mangle -A POSTROUTING -o $WAN -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 ```
 
-> 一台手机不太可能跑 400+ 并发、开各种端口。所以从可能的行为层检测考虑，**推荐改成 Windows 桌面画像（`mac_type=1`）**。
+> 一台手机不太可能跑 800+ 并发、开各种端口。所以从可能的行为层检测考虑，**推荐改成 Windows 桌面画像（`mac_type=1`）**。
 > 改画像 = 换 MAC + 改 UA + 重登，三件套一起换。
 > 具体选 PC 还是手机画像，取决于你 WAN 口所伪装的 MAC 原本是 PC 还是手机。
 
@@ -512,10 +512,10 @@ iptables -t nat -A PREROUTING -p tcp --dport 53  -j REDIRECT --to-ports 53
 iptables -t nat -A PREROUTING -p udp --dport 123 -j REDIRECT --to-ports 123
 
 # 单机并发上限
-iptables -A FORWARD -i br-lan -p tcp -m connlimit --connlimit-above 400 --connlimit-mask 32 \
+iptables -A FORWARD -i br-lan -p tcp -m connlimit --connlimit-above 800 --connlimit-mask 32 \
   -j REJECT --reject-with tcp-reset
 # 整屋并发总上限（一台 PC 不该有上千条流）
-iptables -A FORWARD -i br-lan -p tcp -m connlimit --connlimit-above 1000 --connlimit-mask 0 \
+iptables -A FORWARD -i br-lan -p tcp -m connlimit --connlimit-above 2000 --connlimit-mask 0 \
   -j REJECT --reject-with tcp-reset
 ```
 
