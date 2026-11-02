@@ -599,7 +599,7 @@ iptables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 53 2>/dev
 
 #### 为什么要封
 
-见 1.7：portal 前端会主动探测你的私网网段（图片 `onload/onerror`）、用 WebRTC ICE 取内网 IP，
+见 [1.5](#15-门户页与企业-app-的-js-探针)：portal 前端会主动探测你的私网网段（图片 `onload/onerror`）、用 WebRTC ICE 取内网 IP，
 然后把「我在 NAT 后面」加密上报给服务器。
 
 **这是整套检测里唯一"不需要 DPI、你也绕不过"的判据 —— 除非让设备根本没机会打开那个页面。**
