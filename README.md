@@ -7,9 +7,9 @@
 - 路由器：Xiaomi MiWiFi Mini（mt7620 / 128MB） / OpenWrt R24.8.1 / kernel 5.4.278
 - 内网 11 台终端（Windows / iOS / Android / HarmonyOS 混合）
 
-测试结果：**稳定、“永续”在线，且在其他路由器设备、校园网账号下可复现。**
+测试结果：**稳定（长时在线且无网络故障146）、“永续”在线（健壮的掉线重连），且在其他路由器设备、校园网账号下可复现。**
 
-本教程具有较高技术门槛，且并非教你如何无脑执行，所以适合有一定技术基础的人阅读，你应至少同时具备以下条件：
+本教程重原理剖析，具有较高技术门槛，并非教你如何无脑执行，所以适合有一定技术基础的人阅读，你应至少同时具备以下条件：
 - OpenWrt / Linux 基础
 - TCP/IP 与抓包能力
 - 一定的前端基础
@@ -178,41 +178,87 @@ curl -sI http://AC_IP/ | grep -i server
 
 ### 2.2 还原认证协议（4.x）
 
+真实流程是 **两步 GET/JSONP**，且有几个致命细节：
+
+#### 步骤 1：`custom/checkLogin`（登录前的绑定数检查）
+
 ```
-POST http://AC_IP:801/eportal/portal/login
-Content-Type: application/x-www-form-urlencoded
+GET http://AC_IP:801/eportal/portal/custom/checkLogin
+    ?callback=dr1003
+    &user_account=<纯账号，不带 ,1, 前缀>
+    &user_password=<明文密码>
+    &wlan_user_ip=<WAN IP，点分十进制>
+    &wlan_user_mac=<WAN MAC，大写去冒号>
+    &account_suffix=@cmcc
+    &phone_flag=1
+    &jsVersion=4.2.1
+    &v=<4 位随机数>
+    &lang=zh
 
-login_method=1
-user_account=<账号><@运营商后缀>
-user_password=<明文密码>
-wlan_user_ip=<WAN IP>
-wlan_user_ipv6=            ← 留空！有 v6 会暴露设备
-wlan_user_mac=<WAN MAC，大写去冒号>
-wlan_ac_ip=<AC 侧 IP>
-wlan_ac_name=<BRAS 名>
-jsVersion=4.X
+→ dr1003({"result":1,"msg":"账号绑定数量小于配置数，直接登录！"})
 ```
 
-> **注意**：路由器脚本发的这条请求**不带 `mac_type`**（只有浏览器通过 portal 页登录时才带）。
-> 所以"路由器认证"这条路径本身不暴露终端类型 —— 暴露的是**内网设备自己去访问 portal** 的时候。
+#### 步骤 2：`login`（真正的认证）
 
-返回 `jsonpReturn({"result":1,...})` 即成功；失败时 `ret_code` 含义：
+```
+GET http://AC_IP:801/eportal/portal/login
+    ?callback=dr1005
+    &login_method=1
+    &user_account=,1,<账号>@<运营商>     ← 【关键】必须带 ,1, 前缀；, 与 @ 都要 URL 编码
+    &user_password=<明文密码>
+    &wlan_user_ip=<WAN IP，点分十进制>
+    &wlan_user_ipv6=                    ← 留空！有 v6 会暴露设备
+    &wlan_user_mac=<WAN MAC，大写去冒号>
+    &wlan_ac_ip=<AC 侧 IP>
+    &wlan_ac_name=<BRAS 名>
+    &jsVersion=4.2.1                    ← 【关键】不是 4.X
+    &login_t=1                          ← 1=PC，4=手机
+    &js_status=0
+    &is_page=1
+    &is_page_new=<4 位随机数>
+    &terminal_type=1                    ← 1=PC，2=手机，3/4=平板
+    &lang=zh-cn
+    &v=<4 位随机数>
+    &lang=zh
 
-| ret_code / msg | 含义 | 处理 |
+→ dr1005({"result":1,"msg":"Portal协议认证成功！"})
+```
+
+#### 四个致命细节（缺一个就失败）
+
+| # | 细节 | 缺了会怎样 |
+|---|---|---|
+| 1 | **`user_account` 必须带 `,1,` 前缀** —— 值形如 `,1,3236666666@cmcc`（整体 URL 编码成 `%2C1%2C3236666666%40cmcc`） | 「账号没有通过校验或校验已失效」 |
+| 2 | **必须先调 `custom/checkLogin`** | 直接发 login → 同样报"校验失效" |
+| 3 | **`jsVersion` 必须是 `4.2.1`** | 写 `4.X` 会失败 |
+| 4 | **必须是 GET + `callback=<jsonp函数名>`**，不是 POST | POST 返回空体 |
+
+> **`,1,` 前缀是最隐蔽的坑**：它是 Dr.COM 的账号格式标记（`,1,` = 普通认证）。
+> 少了它，服务端会认为"这次请求没有对应的校验票据"，于是回你一句语法完全正确、但指向完全错误的
+> 「账号没有通过校验或校验已失效」—— 很容易被误判成"账号被封"或"密码错了"，从而浪费大量时间。
+
+#### 返回码与处理
+
+| 返回 | 含义 | 处理 |
 |---|---|---|
 | `result:1` | 成功 | — |
-| **146**（"网络故障 146"） | 后台监测账号状态异常，**固定封停 300 秒** | **静默 300 秒后重连**（不要提前重试） |
-| **"账号没有通过校验或校验已失效"** | **会话状态不一致** | **可重试** |
+| **`ret_code:2`（"终端IP已在线"）** | **其实已经在线**，不是失败 | **视为成功**，不要反复重登 |
+| **146**（"网络故障 146"） | 后台监测账号状态异常，**固定封停 300 秒** | **静默 300 秒后重连**|
+| "账号没有通过校验或校验已失效" | **参数格式不对**（缺 `,1,` 前缀 / 没先 checkLogin / jsVersion 错） | 回到上面四条逐一检查 |
 | "用户名或密码错误" / "密码不正确" | 真凭据错误 | **立即停手**，别撞 5 次锁号 |
-| 2 | 终端 IP 已经在线 | 等会话清理 |
 | 3 | 系统繁忙 | 退避重试 |
 | 5 / 6 | REQ_CHALLENGE 失败 / 超时 | 网络类，快速重试 |
 | 7 | Radius 认证失败 | 看 RADIUS 侧 |
 
-> ⚠️ **AC 一般有"连续失败 5 次锁号"**。调试阶段务必用错号试探，不要拿真账号反复试密码。
+> **`login_t` 与 `terminal_type` 必须和 UA 画像一致**：
+> UA 是 Windows → `login_t=1` + `terminal_type=1`；
+> UA 是 Android → `login_t=4` + `terminal_type=2`。
+> 混用等于自报"我这一台设备同时是两种东西"。
+>
+> ⚠️ **AC 一般有"连续失败 5 次锁号"**。调试阶段务必用测试号，不要拿真账号反复试密码。
 > 但要区分：**146 不消耗密码错误次数**，只有"密码错误"类才消耗。
 
-### 2.3 会话状态探针（本文最有用的一招）
+### 2.3 会话状态探针
 
 绝大多数 Dr.COM ePortal 部署都暴露了这个**无需认证**的接口：
 
@@ -222,7 +268,7 @@ GET http://AC_IP:801/eportal/portal/online_list
     &wlan_user_mac=<WAN MAC>
     &wlan_user_ip=<IP 的十进制>
     &curr_user_ip=<同上>
-    &jsVersion=4.X
+    &jsVersion=4.2.1
 ```
 
 返回你自己的完整会话记录。它解决了一个致命问题：**"我到底在线吗？AC 现在认为我是几台设备？"**
@@ -243,7 +289,7 @@ ip2dec() { echo "$1" | awk -F. '{printf "%.0f",$1*16777216+$2*65536+$3*256+$4}';
 | 会话消失，重新登录成功，账号不变 | 正常超时/被踢，自动重认证即可 |
 | 会话仍在但 `user_account` 变了 | **同一 IP/MAC 被别的账号顶掉**（宿舍多人多账号常见） |
 | 在线但 HTTP 被 302/JS 跳转到认证页 | **被判定共享 / 被限制** ← 这才是真正的风控信号 |
-| 会话消失且重登返回"校验已失效" | **AC 侧脏会话未清理** |
+| 会话消失且重登返回"校验已失效" | **先怀疑自己的登录参数格式**（缺 `,1,` 前缀 / 没先 `checkLogin` / jsVersion 不是 4.2.1）—— 见 2.2。**不是**"脏会话" |
 
 ### 2.5 （可选）服务端对账接口
 
@@ -256,6 +302,43 @@ s1=020;sec=4167;uf=316041;df=278960;
 含义：会话状态 / **在线秒数** / **已用上行** / **已用下行**。
 **用途**：拿它和路由器 `vnstat`/`/proc/net/dev` 的计数对账，看服务端记的流量和你实际跑差多少 ——
 如果差值很大，说明服务端在按自己的口径记账（可能用于判定异常）。
+
+### 2.6 抓一次真实登录 HAR（**最推荐的排障手段**）
+
+> 这一节是踩坑踩出来的经验：为了搞清"为什么路由器登录总是被拒"，先后尝试了 **种种手段**
+> **最后， 3 分钟解决的，是抓包 App 导出一份 HAR。**
+
+做法：
+
+1. 手机装 [ProxyPin](https://github.com/wanghongenpin/proxypin)（开源、能导出标准 HAR）
+2. 开启抓包 → 手机浏览器打开 portal → **点注销** → **重新登录**（完整走一遍）
+3. 导出 HAR，电脑上用几行脚本过滤：
+
+```python
+import json
+har = json.load(open('export.har', encoding='utf-8'))
+for e in har['log']['entries']:
+    u = e['request']['url']
+    if 'eportal' in u or '210.34' in u:
+        print(e['request']['method'], u)
+        print('  ->', (e['response'].get('content', {}) or {}).get('text', '')[:200])
+```
+
+**重点只看四件事**：
+
+| 看什么 | 为什么 |
+|---|---|
+| `user_account` 的**准确值** | 有没有 `,1,` 前缀（本文最大的坑） |
+| `jsVersion` 的**准确值** | 是 `4.2.1` 还是别的 |
+| 有没有 `custom/checkLogin` **前置请求** | 决定要不要加这一步 |
+| 请求是 **GET + callback** 还是 POST | 决定用什么方式发 |
+
+> **不要只靠反编译 JS 猜参数**：JS 里有大量分支（`login_method=0/1/14`、`en_md5`、`enable_hotelop_login`、
+> `custom.login_t` 等），静态分析很容易看错分支。**HAR 是"服务端实际收到的那一份"，不会骗人。**
+>
+> 附带：HAR 里还会暴露 **logout 用的是固定假账号**（`user_account=drcom&user_password=123&ac_logout=1`），
+> 以及门户会先弹一个 `custom/checkLogin`（返回"账号绑定数量小于配置数，直接登录！"）——
+> 这条消息本身就是"多设备绑定数"判定逻辑的直接证据。
 
 ---
 
@@ -586,19 +669,23 @@ uci commit campus
      ├─ 146 静默期内 → 不动（不请求、不消耗次数）
      ├─ 退避期内 → 不动
      └─ 执行一次 login，按返回分流：
-          login-ok            → 恢复（自然掉线约 12~15 秒）
-          146                 → ban_until = now + 300
-          凭据类错误           → 写 FLAG，停手
-          网络类失败           → 2/5/10/20/30s 快重试
-          快重试用尽           → 600s × 8 轮
-          8 轮用尽             → 1800s 自愈（不放弃）
+          login-ok / ret_code=2  → 恢复（ret_code=2 表示"终端IP已在线"，同样算成功）
+          146                    → ban_until = now + 300
+          凭据类错误              → 写 FLAG，停手
+          网络类失败              → 2/5/10/20/30s 快重试
+          快重试用尽              → 600s × 8 轮
+          8 轮用尽                → 1800s 自愈（不放弃）
 ```
+
+> **`ret_code=2` 一定要当成功处理**。实测中会出现"会话明明在线，但 `online_list` 短暂读不到"的情况，
+> 这时 login 会返回 `{"result":0,"msg":"终端IP已在线","ret_code":2}`。
+> 如果把它当失败，就会陷入"明明在线却反复重登"的循环。
 
 ### 6.4 时间线预期
 
 | 场景 | 恢复耗时 |
 |---|---|
-| **自然掉线** | `10s 发现 → 立即登录 → 约 12~15s 恢复` |
+| **自然掉线** | `10s 发现 → checkLogin → login →` **实测 15 秒恢复** |
 | **146 封停** | `10s 发现 → 146 → 静默 300s → 立即重连`，总计约 **310~315s** |
 | **网络故障** | 2/5/10/20/30s 快重试（67s），再 600s×8 轮，之后每 1800s 一次 |
 | **密码真错** | 立即停手 + 提示人工处理 |
@@ -617,5 +704,42 @@ uci commit campus
 ```
 
 **判断有没有效果就看两列**：`恢复耗时` 和 `此前已在线 xxx`（后者越来越长 = 越来越难被踢）。
+
+### 6.6 一次真实的「掉线 → 自动恢复」验证记录
+
+为了验证 v2 是否真的能自己把会话拿回来，做了一次受控实验：**手动注销 → 完全交给守护进程**。
+
+```
+=== 注销 ===
+logout-1  Radius注销成功！
+
+=== 等待 guard 自动重连 ===
+  + 5s:  offline
+  +10s:  offline
+  +15s:  online  acct=3236666666@cmcc  tl=3  sid=16666     ← 自动重连成功
+
+=== 最终 ===
+NET_OK
+```
+
+对应日志：
+
+```
+09:10:00  logout: result=1 msg=Radius注销成功！
+09:10:01  state -> offline (此前已在线 11s)
+09:10:01  checkLogin: {"result":1,"msg":"账号绑定数量小于配置数，直接登录！"}
+09:10:02  login #1: login-fail no-response        ← BRAS 还没放通，空响应
+09:10:02  网络类失败，2s 后重试
+09:10:13  login #2: login-fail no-response        ← 仍然空响应
+09:10:13  网络类失败，5s 后重试
+→ 约 09:10:15  state -> online（新会话 sid=16666，tl 从 0 开始）
+```
+
+**两个值得注意的点**：
+
+1. **前两次 `no-response` 是正常现象** —— 注销后 BRAS 侧需要几秒才放通新认证，`wget` 拿不到响应。
+
+2. **`checkLogin` 每次都成功** —— 说明登录参数（`,1,` 前缀、`jsVersion=4.2.1`、全套字段）已经被 AC 接受，
+   剩下的只是等网络放通。
 
 ---
