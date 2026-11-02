@@ -98,17 +98,17 @@ AC 自助服务页只有一行，但会给你打上"终端类型"标签：
 
 | # | 维度 | 状态 | 依据 |
 |---|---|---|---|
-| 1 | **`mac_type` 终端类型** | ✅ **生效** | portal `a41.js` 的 `util.getTermType()` 按 UA 算 0/1/2/3/4 并随请求上报|
-| 2 | **IPv6 地址** | ✅ **生效** | portal 上报 `wlan_user_ipv6`，且有 `ip6.dr.com:9002/v6` 通道；**IPv6 无 NAT，设备 MAC 全裸奔** |
-| 3 | **计费流量 42/43 + 52/53** | ✅ **生效** | RADIUS 全量累计、Interim 级实时上报（流量数据确实被实时上报）|
-| 4 | IPv4 TTL | ✅ 生效 | TTL 归一即可 |
-| 5 | IPID / TCP 选项 / 窗口 / TSval | ✅ 生效 | L3 重建 TCP 后由路由器内核生成 |
-| 6 | 明文 HTTP 的 UA / `sec-ch-ua` | ✅ 生效 | portal 会上传明文 HTTP |
-| 7 | **TLS/JA3/JA4、HTTP/2 指纹** | ❌ **证伪** | 经过深入探索，福建农林大学仓山校区校园网检测无此项 |
-| 8 | QUIC / HTTP3 | ✅ 生效 | UDP 443 上有独立指纹 |
-| 9 | 广播/组播（SSDP/mDNS/LLMNR/WS-D/NetBIOS/DHCP） | ✅ 生效 | 出公网 = "家里不止一台设备"的直接证据 |
-| 10 | 单 IP 并发连接数 | ✅ 生效 | 上千条流 = 典型 NAT 特征 |
-| 11 | 主动探测 / ARP 扫描 | ❌ 证伪 | 经过深入探索，福建农林大学仓山校区校园网检测无此项 |
+| 1 | **`mac_type` 终端类型** | ✅ | portal `a41.js` 的 `util.getTermType()` 按 UA 算 0/1/2/3/4 并随请求上报|
+| 2 | **IPv6 地址** | ✅ | portal 上报 `wlan_user_ipv6`，且有 `ip6.dr.com:9002/v6` 通道；**IPv6 无 NAT，设备 MAC 全裸奔** |
+| 3 | **计费流量 42/43 + 52/53** | ✅ | RADIUS 全量累计、Interim 级实时上报（流量数据确实被实时上报）|
+| 4 | IPv4 TTL | ✅ | TTL 归一即可 |
+| 5 | IPID / TCP 选项 / 窗口 / TSval | ✅ | L3 重建 TCP 后由路由器内核生成 |
+| 6 | 明文 HTTP 的 UA / `sec-ch-ua` | ✅ | portal 会上传明文 HTTP |
+| 7 | **TLS/JA3/JA4、HTTP/2 指纹** | ❌ | 经过深入探索，福建农林大学仓山校区校园网检测无此项 |
+| 8 | QUIC / HTTP3 | ✅ | UDP 443 上有独立指纹 |
+| 9 | 广播/组播（SSDP/mDNS/LLMNR/WS-D/NetBIOS/DHCP） | ✅ | 出公网 = "家里不止一台设备"的直接证据 |
+| 10 | 单 IP 并发连接数 | ✅ | 上千条流 = 典型 NAT 特征 |
+| 11 | 主动探测 / ARP 扫描 | ❌ | 经过深入探索，福建农林大学仓山校区校园网检测无此项 |
 | 12 | DNS/NTP 侧信道 | ⚪ 未验证 | 建议仍接管 |
 
 ### 1.3 `mac_type` 是怎么被算出来的
