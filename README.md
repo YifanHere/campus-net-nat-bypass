@@ -137,7 +137,7 @@ util.getTermType = function(ua) {
 > **结论**：如果你的认证脚本固定说"我是 Android 手机"（`mac_type=2/3`），
 > 但实际跑着 11 台设备、400+ 并发、开各种端口 —— **画像自相矛盾**，这就是被踢的重要信号之一。
 >
-> **正确做法**：统一成 **桌面 Windows 画像**（`mac_type=1`）
+> **正确做法**：统一画像
 
 ### 1.4 一句话结论
 
@@ -424,8 +424,13 @@ iptables -t mangle -A POSTROUTING -o $WAN -p icmp -j TTL --ttl-set 64
 iptables -t mangle -A POSTROUTING -o $WAN -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 ```
 
-> 一台手机不太可能跑 400+ 并发、开各种端口。**推荐改成 Windows 桌面画像（`mac_type=1`）**。
+> 一台手机不太可能跑 400+ 并发、开各种端口。所以从可能的行为层检测考虑，**推荐改成 Windows 桌面画像（`mac_type=1`）**。
 > 改画像 = 换 MAC + 改 UA + 重登，三件套一起换。
+> 具体选 PC 还是手机画像，取决于你 WAN 口所伪装的 MAC 原本是 PC 还是手机。
+
+**关于 ICMP ID**：多台设备 ping 会各自生成 ICMP echo id，看似是"多源"特征。
+但只要出方向有 `MASQUERADE`，**NAT 会自动改写 ICMP echo id**（与 TCP/UDP 端口同一套映射机制），
+不需要额外规则。
 
 ### 4.3 UA 统一：装完必须验证
 
@@ -476,6 +481,10 @@ iptables -A FORWARD -o $WAN -p udp -m multiport --dports 1900,5353,5355,3702 -j 
 iptables -A FORWARD -o $WAN -p udp -m multiport --dports 137,138 -j DROP
 iptables -A FORWARD -o $WAN -p tcp -m multiport --dports 139,445 -j DROP
 iptables -A FORWARD -o $WAN -p udp -m multiport --dports 67,68 -j DROP
+
+# DoT(853)：设备用加密 DNS 会绕过 4.6 的 53 端口接管，真实查询集合就暴露了
+iptables -A FORWARD -o $WAN -p tcp --dport 853 -j DROP
+iptables -A FORWARD -o $WAN -p udp --dport 853 -j DROP
 ```
 
 > 常见误区：漏了 **LLMNR(5355)** 和 **WS-Discovery(3702)** —— Windows 网络上这两样出公网，等于自报"我家有台 Windows"。
@@ -493,6 +502,18 @@ iptables -A FORWARD -i br-lan -p tcp -m connlimit --connlimit-above 400 --connli
 # 整屋并发总上限（一台 PC 不该有上千条流）
 iptables -A FORWARD -i br-lan -p tcp -m connlimit --connlimit-above 1000 --connlimit-mask 0 \
   -j REJECT --reject-with tcp-reset
+```
+
+### 4.6.1 抑制 AAAA 查询（避免"卡在 IPv6 上"）
+
+如果 `FORWARD` 对 IPv6 是 DROP，设备拿到 AAAA 记录后仍会尝试连 v6，
+连接被静默丢弃 → 表现为"某些网站特别慢/打不开"，而且这种"半死"状态本身不自然。
+
+**dnsmasq-full 直接过滤**：
+
+```bash
+uci set dhcp.@dnsmasq[0].filter_aaaa='1'
+uci commit dhcp && /etc/init.d/dnsmasq restart
 ```
 
 ### 4.7 全 TCP 重发起（核心）
