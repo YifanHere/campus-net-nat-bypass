@@ -648,7 +648,7 @@ uci set campus.guard.cycle_wait='600'     # 快重试用尽后的慢速轮间隔
 uci set campus.guard.max_cycles='8'       # 慢速轮轮数（8 × 10min ≈ 80min）
 uci set campus.guard.idle_retry='1800'    # 之后每 30 分钟自愈一次
 uci set campus.guard.auto_renew='1'       # 会话接近上限时主动续期
-uci set campus.guard.renew_after='62520'  # 实测 AC 会话上限约 17h37m，提前 15 分钟续
+uci set campus.guard.renew_after='62520'  # 实测 AC 会话上限约 17h37m（未证实，存疑），提前 15 分钟续
 uci commit campus
 ```
 
