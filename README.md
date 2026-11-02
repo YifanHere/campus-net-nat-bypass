@@ -49,9 +49,13 @@
 ---
 
 ## 0. 两句话
-**经过了 一些 深入探索与研究 ，发现：**
-  1. **检测不在协议栈层。** TLS/JA3/HTTP2 指纹在这条链路上**不存在**—— 数据面在华为 BRAS，Dr.COM 只是 RADIUS + Portal 服务器，没有用户流量 DPI 能力。
-  2. **检测在 portal 自己上报的字段里**：`mac_type`（由 UA 算出的终端类型）、`wlan_user_ipv6`、计费流量 `42/43+52/53`（持续监测各项流量特征是否正常）。这三样是真正决定你会不会被踢的东西。
+**经过了 一些 深入的实证 ，发现：**
+  1. **检测不在协议栈层。** TLS/JA3/HTTP2 指纹在这条链路上**不存在**—— 数据面在华为 BRAS，Dr.COM 只是 RADIUS + Portal 服务器，网关有用户流量 DPI 能力但**当前没有启用**。
+  2. **真正的判据是「设备自己上报」。** portal 前端会主动探测你的私网网段（图片 `onload/onerror`）、用 WebRTC ICE 取本地 IP、用 ActiveX 拿网关地址，
+   然后把「我在 NAT 后面，网关是 X」加密交给服务器（`duodian/send_ua` 的 `s_is_nat`/`s_nat_ip`/`a_nat_ip`/`win_nat_ip`）。
+   **这条完全不依赖 DPI，也绕不过 TTL/UA 归一 —— 因为答案是你自己交上去的。**
+
+> **所以这套方案的核心不是"伪装"，是"别让它问，或别让它答"。但做戏做全套，也是为了以防万一，我们仍然做“充分的伪装”。**
 
 ---
 
@@ -100,15 +104,16 @@ AC 自助服务页只有一行，但会给你打上"终端类型"标签：
 |---|---|---|---|
 | 1 | **`mac_type` 终端类型** | ✅ | portal `a41.js` 的 `util.getTermType()` 按 UA 算 0/1/2/3/4 并随请求上报|
 | 2 | **IPv6 地址** | ✅ | portal 上报 `wlan_user_ipv6`，且有 `ip6.dr.com:9002/v6` 通道；**IPv6 无 NAT，设备 MAC 全裸奔** |
-| 3 | **计费流量 42/43 + 52/53** | ✅ | RADIUS 全量累计、Interim 级实时上报（流量数据确实被实时上报）|
+| 3 | 计费流量 42/43 + 52/53 | ✅ | RADIUS 全量累计、Interim 级实时上报（流量数据确实被上报）|
 | 4 | IPv4 TTL | ✅ | TTL 归一即可 |
 | 5 | IPID / TCP 选项 / 窗口 / TSval | ✅ | L3 重建 TCP 后由路由器内核生成 |
 | 6 | 明文 HTTP 的 UA / `sec-ch-ua` | ✅ | portal 会上传明文 HTTP |
-| 7 | **TLS/JA3/JA4、HTTP/2 指纹** | ❌ | 经过深入探索，福建农林大学仓山校区校园网检测无此项 |
+| 7 | **TLS/JA3/JA4、HTTP/2 指纹** | ❌ | 经过实证，福建农林大学仓山校区校园网未启用 DPI 相关检测 |
+| **7a** | **客户端自报 NAT** | ✅ | `duodian/send_ua` 上报 `s_is_nat`/`s_nat_ip`/`a_nat_ip`/`win_nat_ip`，前端自己探测私网网段 + WebRTC + ActiveX |
 | 8 | QUIC / HTTP3 | ✅ | UDP 443 上有独立指纹 |
 | 9 | 广播/组播（SSDP/mDNS/LLMNR/WS-D/NetBIOS/DHCP） | ✅ | 出公网 = "家里不止一台设备"的直接证据 |
 | 10 | 单 IP 并发连接数 | ✅ | 上千条流 = 典型 NAT 特征 |
-| 11 | 主动探测 / ARP 扫描 | ❌ | 经过深入探索，福建农林大学仓山校区校园网检测无此项 |
+| 11 | 主动探测 / ARP 扫描 | ❌ | 经过实证，福建农林大学仓山校区校园网检测无此项 |
 | 12 | DNS/NTP 侧信道 | ⚪ | 建议仍接管 |
 
 ### 1.3 `mac_type` 是怎么被算出来的
@@ -145,16 +150,26 @@ util.getTermType = function(ua) {
 
 ### 1.5 门户页与企业 App 的 JS 探针
 
-发现了两处很聪明的设计，属于非报文层的旁路探测，必须单独防：
-1. **门户页会尝试拿内网 IP。** JS 直接读不到，但 **WebRTC** 能把真实局域网地址暴露出来。
-   - 处置：LAN 用冷门私有段（如 `10.77.0.1/24`）；浏览器装 WebRTC Leak Shield 或禁用 WebRTC。
-2. **门户页会上报 UA，并算成 `mac_type` 与账号画像比对。**
-   - 处置：**先让 UA 归一上线，再用浏览器访问门户/自助服务**；顺序反了，你自己就是那个"异常终端"。
-   - **更高优先级的处置**：用 `block_lan_portal=1` **彻底禁止内网设备直连 portal**（见 4.9），让所有 portal 流量只从路由器发出 —— 这样设备 UA 根本不会暴露。
-3. **学校自有 App（如"数字FAFU"）会扫局域网拓扑并向服务器上报。**
+发现了很聪明的设计，属于非报文层的旁路探测，必须单独防：
+1. **学校自有 App（如"数字FAFU"）可能会扫局域网拓扑并向服务器上报。**
    - 处置：**用流量打开，别连 WiFi**。
+2. **门户页会尝试拿内网 IP。** JS 直接读不到，但 WebRTC 能把真实局域网地址暴露出来。
+   - 处置：LAN 用冷门私有段（如 `10.77.0.1/24`）；浏览器装 WebRTC Leak Shield 或禁用 WebRTC。
+3. **门户页会上报 NAT 信息**
+   - 处置：先让 UA 归一上线，再用浏览器访问门户/自助服务；顺序反了，你自己就是那个"异常终端"。
+   - **更高优先级的处置（实测必须这么做）**：用 `block_lan_portal=1` **彻底禁止内网设备直连 portal**（见 4.9），让所有 portal 流量只从路由器发出 —— 这样设备 UA 根本不会暴露。
 
-> 一句话：报文层做得再干净，只要你自己用浏览器裸奔去点门户页，等于自首。
+从 portal 前端 a40.js 反出来的 duodian/send_ua ：
+
+| 字段	| 来源	| 说明 |
+|---|---|---|
+| user_agent	| 浏览器原样（小写化）| 	UA 确实被上报 |
+| s_is_nat / s_nat_ip	| 前端逐个私网地址做图片 onload/onerror 探测	| 命中就把「NAT 网关地址」交上去 |
+| a_nat_ip / a_is_nat	| WebRTC ICE candidate	| 移动端报 'android_'+内网IP |
+| win_nat_ip / is_nat	| Windows ActiveX | 	is_nat = win_nat_ip ∉ {'', '0.0.0.0', term.ip} |
+| terminal_type / wlan_user_ipv6	| 页面 JS	| 终端类型、IPv6 |
+
+**这就是为什么把协议栈伪装得再好也没用 —— 你打开（或主动或被动）一次 portal 页，就等于主动交了一份"NAT 自白书"。**
 
 ---
 
@@ -574,35 +589,79 @@ iptables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 53 2>/dev
 
 ### 4.9 封堵 portal 直连
 
-> 此前笔者发现，舍友的小米手机每次连上宿舍网络后的一两分钟里，几乎总会报网络故障146。
-> 可能是该手机在后台自动打开了 portal 页面，其 UA 被上报从而被检测。
+> 笔者的碎碎念：
+> 此前笔者发现，舍友的小米手机每次连上宿舍网络后的几分钟里，几乎总会报网络故障146。
+> 现在想来，可能是该手机在连接网络后会在后台自动打开 portal 页面，被上报从而被检测。
 > 封堵 protal 后遂解决。
 
-**问题**：`CAMPUS_RELAY` 里通常有一条 `-d $AC_IP -j RETURN`（让 portal 流量直通、不中转）。
-后果是：**内网设备自己去打开 portal 页面时，UA 是它自己的原始 UA**，完全绕过你的 UA 统一。
+#### 为什么要封
 
-**解法**：直接禁止内网设备访问 AC：
+见 1.7：portal 前端会主动探测你的私网网段（图片 `onload/onerror`）、用 WebRTC ICE 取内网 IP，
+然后把「我在 NAT 后面」加密上报给服务器。
+
+**这是整套检测里唯一"不需要 DPI、你也绕不过"的判据 —— 除非让设备根本没机会打开那个页面。**
+
+#### 要封哪些 IP
+
+| IP | 用途 | 必须封 |
+|---|---|---|
+| `210.34.84.127` | 认证网关主 IP（portal 页） | ✅ |
+| **`210.34.81.164`** | **同一台机的第二 IP**（也能出 portal 页） | ✅ **最容易漏** |
+| **`210.34.81.50`** | **自助服务 `/Self`**（会显示"终端类型"、能看上网记录，**同样跑 NAT 探测**） | ✅ |
+
+> ⚠️ 只封 `210.34.84.127` 是**无效的** —— 实测内网设备仍在通过 `.81.50` 与 `.81.164` 访问并触发探测。
+
+#### ⚠️ 关键陷阱：封在 `FORWARD` 上对走中继的流量**完全无效**
+
+我踩过的坑：
+内网设备 → PREROUTING(nat) → CAMPUS_RELAY: REDIRECT → 12032 ↓ 目标变成 10.233.233.1:12032 ↓ 走 INPUT，不走 FORWARD ↓ CAMPUS_FILTER(FORWARD) 的 DROP 永远看不到
+
+**`REDIRECT` 在 nat 表，比 FORWARD 早。** 所以只在 `CAMPUS_FILTER` 里加 `-d <IP> -j DROP`，
+对"走中继的流量"**一条都拦不住**（计数器永远 0）。
+
+**正确顺序：先 `RETURN` 出中继链，再在 `FORWARD` 上 `DROP`。**
+
+#### 正确做法
 
 ```bash
-iptables -A CAMPUS_FILTER -i br-lan -d $AC_IP -j DROP
+AC_IP=210.34.84.127
+BLOCK_LIST="210.34.84.127 210.34.81.164 210.34.81.50"
+
+for ip in $BLOCK_LIST; do
+  # 第一步：让它不进中继（否则永远到不了 FORWARD）
+  iptables -t nat -C CAMPUS_RELAY -d "$ip" -j RETURN 2>/dev/null || \
+    iptables -t nat -I CAMPUS_RELAY 1 -d "$ip" -j RETURN
+  # 第二步：在 FORWARD 上真正丢弃
+  iptables -C CAMPUS_FILTER -i br-lan -d "$ip" -j DROP 2>/dev/null || \
+    iptables -A CAMPUS_FILTER -i br-lan -d "$ip" -j DROP
+done
 ```
 
-或者用 `campus-normalize` 的配置项：
+**验证（必须看计数器，不要只看规则存在）**
 
 ```bash
-uci set campus.normalize.block_lan_portal='1'
-uci commit campus && /usr/sbin/campus-normalize apply
+# 清零后等待，看 DROP 是否真的命中
+iptables -Z CAMPUS_FILTER
+sleep 60
+iptables -L CAMPUS_FILTER -n -v | grep '210\.34'
+# 期望：至少 210.34.84.127 和 210.34.81.50 的 pkts 在增长
+
+# 反向验证：conntrack 里不应再有「经 12032 去这些 IP」的连接
+for ip in 210.34.81.50 210.34.81.164; do
+  echo -n "$ip: "; grep "$ip" /proc/net/nf_conntrack | grep -c 'sport=12032'
+done
+
+# 期望：0
 ```
 
-**副作用**：内网设备打不开 portal 页面了。需要手动登录/查状态时，**在路由器上执行**：
+副作用与取舍
+内网设备打不开 portal / 自助服务页面了 → 需要登录/查状态时，在路由器上执行：
 
 ```bash
 campus-auth status    # 看在线状态
 campus-auth login     # 手动认证
 campus-auth info      # 综合信息
 ```
-
-> 这一条把"设备 UA 暴露"这个问题从根上砍掉了 —— 因为设备根本没有机会访问 portal。
 
 ---
 
