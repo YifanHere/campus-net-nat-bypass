@@ -53,7 +53,7 @@
 ## 0. 两句话
 **经过了 一些 深入的实证 ，发现：**
   1. **检测不在协议栈层。** TLS/JA3/HTTP2 指纹在这条链路上**不存在**—— 数据面在华为 BRAS，Dr.COM 只是 RADIUS + Portal 服务器，网关有用户流量 DPI 能力但**当前没有启用**。
-  2. **真正的判据是「设备自己上报」。** portal 前端会主动探测你的私网网段（图片 `onload/onerror`）、用 WebRTC ICE 取本地 IP、用 ActiveX 拿网关地址，
+  2. **容易被忽略的判据是「设备自己上报」。** portal 前端会主动探测你的私网网段（图片 `onload/onerror`）、用 WebRTC ICE 取本地 IP、用 ActiveX 拿网关地址，
    然后把「我在 NAT 后面，网关是 X」加密交给服务器（`duodian/send_ua` 的 `s_is_nat`/`s_nat_ip`/`a_nat_ip`/`win_nat_ip`）。
    **这条完全不依赖 DPI，也绕不过 TTL/UA 归一 —— 因为答案是你自己交上去的。**
 
