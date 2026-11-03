@@ -41,7 +41,6 @@
 ## 目录
 
 - [0. 两句话](#0-两句话)
-- [0.1 修订记录与勘误（2026-11-03 二次实证，**先读这节**）](#01-修订记录与勘误2026-11-03-二次实证先读这节)
 - [1. 对端到底在看什么](#1-对端到底在看什么)
 - [2. 侦察：先把对手摸清楚](#2-侦察先把对手摸清楚)
 - [3. 方案设计：五层架构](#3-方案设计五层架构)
@@ -532,6 +531,31 @@ uci set dhcp.@dnsmasq[0].filter_aaaa='1'
 uci commit dhcp && /etc/init.d/dnsmasq restart
 ```
 
+### 4.6.2 新建连接速率闸门
+
+> 它和"并发连接数"不是一回事：
+> **并发**是某一时刻有多少条流；**速率**是每秒新建多少个连接。AC 看的是后者。
+
+**实测依据**：从本机造成 1000 SYN/s 后，**约 2 分钟**账号被 146 强制注销；
+而多设备网页+视频的稳态新建连接通常 **<40/s**。也就是说这条路径**与共享检测无关**，
+但一样能把你踢下线，而且在做端口扫描/测速/开一堆标签页时最容易被触发。
+
+**规则（`recent` 版，低端 mips 上比 hashlimit 省 CPU）**：
+
+```sh
+iptables -t mangle -N CAMPUS_RATE
+iptables -t mangle -A CAMPUS_RATE -o "$WAN" -p tcp --tcp-flags SYN,RST,ACK SYN \
+  -m recent --name WANRATE --rcheck --seconds 2 --hitcount 120 -j DROP
+iptables -t mangle -A CAMPUS_RATE -o "$WAN" -p tcp --tcp-flags SYN,RST,ACK SYN \
+  -m recent --name WANRATE --set -j RETURN
+iptables -t mangle -I FORWARD 1 -j CAMPUS_RATE
+```
+
+--seconds 2 --hitcount 120 ≈ 60/s、burst 120。取值理由：
+
+低于正常使用的突发（一次页面加载的并发 SYN 可到 80–120），所以不卡体验；
+又远低于能触发风控的量级（1000/s）。
+
 ### 4.7 全 TCP 重发起（核心）
 
 **原理**：`REDIRECT` 把 LAN 的 TCP 连接改投到本机端口，中转进程用 `SO_ORIGINAL_DST` 取回原始目标，再以自己的协议栈重新建连。
@@ -611,7 +635,7 @@ iptables -t nat -C PREROUTING -p udp --dport 53 -j REDIRECT --to-ports 53 2>/dev
 |---|---|---|
 | `210.34.84.127` | 认证网关主 IP（portal 页） | ✅ |
 | **`210.34.81.164`** | **同一台机的第二 IP**（也能出 portal 页） | ✅ **最容易漏** |
-| `210.34.81.50` | 自助服务 `/Self` | ❌ 无检测，可封可不封 |
+| `210.34.81.50` | 自助服务 `/Self` | ❌ 无探测，可封可不封 |
 
 #### ⚠️ 关键陷阱：封在 `FORWARD` 上对走中继的流量**完全无效**
 
