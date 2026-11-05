@@ -518,7 +518,8 @@ uci commit ua3f && /etc/init.d/ua3f restart
 ```bash
 curl -s http://httpbin.org/user-agent
 # 期望：无论 Windows / iPhone / Android，返回的 user-agent 完全一致
-# ⚠️ 这条命令必须在 LAN 设备上跑。在路由器上跑，拿到的是 wget/curl 自己的 UA —— 因为它走 OUTPUT，压根不进中继。 很多人在路由器上验证「UA 已统一」，实际证明的是另一个面。两个面要分开验证，路由器侧见 §4.3.1。
+# 这条命令必须在 LAN 设备上跑。在路由器上跑，拿到的是 wget/curl 自己的 UA —— 因为它走 OUTPUT，压根不进中继。
+# 很多人在路由器上验证「UA 已统一」，实际证明的是另一个面。两个面要分开验证，路由器侧见 §4.3.1。
 ```
 
 **同时验证认证请求的 UA 也一致**（很多人只改了流量 UA，没改认证脚本的）：
