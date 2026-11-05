@@ -108,7 +108,7 @@ AC 自助服务页只有一行，但会给你打上"终端类型"标签：
 | 4 | IPv4 TTL | ✅ | TTL 归一即可 |
 | 5 | IPID / TCP 选项 / 窗口 / TSval | ✅ | L3 重建 TCP 后由路由器内核生成 |
 | 6 | 明文 HTTP 的 UA / `sec-ch-ua` | ✅ | portal 会上传明文 HTTP；实测 UA 多样会导致秒级封禁 |
-| 7 | **TLS/JA3/JA4、HTTP/2 指纹** | ❌ | 经过实证，福建农林大学仓山校区校园网未启用 DPI 相关检测。 **但存在与之并列的第二个口径缺口：LAN 设备浏览器的三项头未归一（见 §4.3.3）** |
+| 7 | **TLS/JA3/JA4、HTTP/2 指纹** | ❌ | 经过实证，福建农林大学仓山校区校园网未启用 DPI 相关检测。|
 | **7a** | **客户端自报 NAT** | ✅ | `duodian/send_ua` 上报 `s_is_nat`/`s_nat_ip`/`a_nat_ip`/`win_nat_ip`，前端自己探测私网网段 + WebRTC + ActiveX。 |
 | 8 | QUIC / HTTP3 | ✅ | UDP 443 上有独立指纹 |
 | 9 | 广播/组播（SSDP/mDNS/LLMNR/WS-D/NetBIOS/DHCP） | ✅ | 出公网 = "家里不止一台设备"的直接证据 |
